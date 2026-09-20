@@ -1,0 +1,36 @@
+name: Build MyMusic for Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build MyMusic.exe
+        run: npm run build
+
+      - name: Upload MyMusic.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyMusic-Windows
+          path: dist/MyMusic.exe
+          if-no-files-found: error
+          retention-days: 30

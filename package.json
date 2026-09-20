@@ -1,0 +1,41 @@
+{
+  "name": "mymusic",
+  "version": "1.0.0",
+  "description": "MyMusic portable Windows music player",
+  "main": "src/main.js",
+  "author": "MyMusic",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win portable"
+  },
+  "dependencies": {},
+  "build": {
+    "appId": "com.mymusic.player",
+    "productName": "MyMusic",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "portable": {
+      "artifactName": "MyMusic.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.0"
+  }
+}

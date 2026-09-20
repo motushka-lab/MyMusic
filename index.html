@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MyMusic</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#111;color:#eee;font-family:Segoe UI,Arial,sans-serif}
+.app{height:100vh;display:flex;flex-direction:column}.top{padding:22px 28px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #292929}
+h1{margin:0;font-size:28px}.muted{color:#888;font-size:13px;margin-top:4px}
+button{border:0;border-radius:9px;background:#242424;color:#fff;padding:10px 14px;cursor:pointer}
+button:hover{background:#333}.primary{background:#fff;color:#111;font-weight:700}.toolbar{padding:14px 22px;display:flex;gap:8px;border-bottom:1px solid #222}
+.list{flex:1;overflow:auto;padding:8px 16px 130px}.row{display:flex;align-items:center;gap:14px;padding:12px;border-radius:9px}.row:hover,.row.active{background:#202020}
+.cover{width:46px;height:46px;border-radius:7px;background:#292929;display:grid;place-items:center;font-size:22px}
+.info{flex:1;min-width:0}.title{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.artist{color:#888;font-size:13px;margin-top:4px}
+.actions{display:flex;gap:5px}.bottom{position:absolute;bottom:0;left:0;right:0;background:#191919;border-top:1px solid #303030;padding:13px 20px}
+.now{display:flex;align-items:center;gap:14px}.nowinfo{flex:1}.controls{display:flex;align-items:center;gap:8px}.play{width:42px;height:42px;border-radius:50%;background:#fff;color:#111}
+.progress{width:100%;margin-top:9px}input[type=range]{width:100%}.empty{height:100%;display:grid;place-items:center;color:#777;font-size:18px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div><h1>MyMusic</h1><div class="muted" id="count">0 треков</div></div>
+    <button class="primary" id="add">＋ Добавить музыку</button>
+  </div>
+  <div class="toolbar">
+    <button id="all">▶ Всё</button>
+    <button id="shuffle">🔀 Shuffle: выкл</button>
+    <button id="repeat">🔁 Repeat: выкл</button>
+    <button id="clear">Очистить список</button>
+  </div>
+  <div class="list" id="list"><div class="empty">Добавь музыку, чтобы начать</div></div>
+  <div class="bottom">
+    <div class="now">
+      <div class="cover">♪</div>
+      <div class="nowinfo"><div class="title" id="nowTitle">Ничего не играет</div><div class="artist" id="nowArtist">—</div></div>
+      <div class="controls">
+        <button id="prev">⏮</button><button class="play" id="play">▶</button><button id="next">⏭</button>
+      </div>
+    </div>
+    <input class="progress" id="seek" type="range" min="0" max="1000" value="0">
+  </div>
+</div>
+<audio id="audio"></audio>
+<script>
+const audio=document.getElementById("audio");
+const list=document.getElementById("list");
+const count=document.getElementById("count");
+const nowTitle=document.getElementById("nowTitle");
+const nowArtist=document.getElementById("nowArtist");
+const playBtn=document.getElementById("play");
+const seek=document.getElementById("seek");
+let tracks=JSON.parse(localStorage.getItem("mymusic-tracks")||"[]");
+let current=-1, shuffle=false, repeat="off", order=[];
+
+function save(){localStorage.setItem("mymusic-tracks",JSON.stringify(tracks))}
+function render(){
+ count.textContent=tracks.length+" треков";
+ list.innerHTML="";
+ if(!tracks.length){list.innerHTML='<div class="empty">Добавь музыку, чтобы начать</div>';return}
+ tracks.forEach((t,i)=>{
+  const row=document.createElement("div");row.className="row"+(i===current?" active":"");
+  row.innerHTML='<div class="cover">♪</div><div class="info"><div class="title"></div><div class="artist">Локальный файл</div></div><div class="actions"><button class="fav">'+(t.fav?"♥":"♡")+'</button><button class="del">×</button></div>';
+  row.querySelector(".title").textContent=t.name;
+  row.onclick=()=>play(i);
+  row.querySelector(".fav").onclick=e=>{e.stopPropagation();t.fav=!t.fav;save();render()};
+  row.querySelector(".del").onclick=e=>{e.stopPropagation();tracks.splice(i,1);if(current===i){audio.pause();current=-1}else if(current>i)current--;save();render();updateNow()};
+  list.appendChild(row);
+ });
+}
+function updateNow(){
+ const t=tracks[current];
+ nowTitle.textContent=t?t.name:"Ничего не играет";
+ nowArtist.textContent=t?"Локальный файл":"—";
+ playBtn.textContent=audio.paused?"▶":"❚❚";
+ render();
+}
+function makeOrder(){
+ order=tracks.map((_,i)=>i);
+ if(shuffle) order.sort(()=>Math.random()-.5);
+}
+async function play(i){
+ if(!tracks[i])return;
+ current=i;
+ audio.src=tracks[i].path;
+ await audio.play();
+ updateNow();
+}
+function next(){
+ if(!tracks.length)return;
+ if(repeat==="one"){audio.currentTime=0;audio.play();return}
+ if(!order.length)makeOrder();
+ let p=order.indexOf(current);
+ if(p<0)p=0;
+ p++;
+ if(p>=order.length){if(repeat==="all")p=0;else{audio.pause();return}}
+ play(order[p]);
+}
+function prev(){if(audio.currentTime>4){audio.currentTime=0;return}if(!tracks.length)return;let i=current-1;if(i<0)i=repeat==="all"?tracks.length-1:0;play(i)}
+document.getElementById("add").onclick=async()=>{
+ const paths=await window.myMusic.pickAudio();
+ for(const path of paths){
+  const name=path.split(/[\\\\/]/).pop().replace(/\.[^/.]+$/,"");
+  if(!tracks.some(t=>t.path===path))tracks.push({path,name,fav:false});
+ }
+ save();makeOrder();render();
+};
+document.getElementById("play").onclick=()=>{if(current<0&&tracks.length)return play(0);audio.paused?audio.play():audio.pause();updateNow()};
+document.getElementById("next").onclick=next;
+document.getElementById("prev").onclick=prev;
+document.getElementById("all").onclick=()=>{makeOrder();play(order[0])};
+document.getElementById("shuffle").onclick=e=>{shuffle=!shuffle;e.target.textContent="🔀 Shuffle: "+(shuffle?"вкл":"выкл");makeOrder()};
+document.getElementById("repeat").onclick=e=>{repeat=repeat==="off"?"all":repeat==="all"?"one":"off";e.target.textContent="🔁 Repeat: "+repeat};
+document.getElementById("clear").onclick=()=>{if(confirm("Удалить всю медиатеку?")){tracks=[];current=-1;audio.pause();save();render();updateNow()}};
+audio.ontimeupdate=()=>{seek.value=audio.duration?audio.currentTime/audio.duration*1000:0};
+audio.onplay=updateNow;audio.onpause=updateNow;audio.onended=next;
+seek.oninput=()=>{if(audio.duration)audio.currentTime=Number(seek.value)/1000*audio.duration};
+makeOrder();render();updateNow();
+</script>
+</body>
+</html>
